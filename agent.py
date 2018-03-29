@@ -1,12 +1,14 @@
 import abc
 
 class Agent(metaclass=abc.ABCMeta):
- """ base class for agent objects """
-    
-    super().__init__()
-    def __init__(self, uid):
+
+    """ base class for agent objects """
+
+    def __init__(self, uid, model):
+        super().__init__()
         self._uid = uid
         self.location = None
+        self.model = model
         
     def get_id(self):
         return self._uid

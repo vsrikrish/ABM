@@ -1,5 +1,4 @@
 import itertools
-import numpy as np
 import warnings
 
 # define decorator to wrap single-tuple arguments in a list
@@ -29,8 +28,9 @@ class Grid(object):
             for y in range(self.height):
                 col.append(self.default_pop())
             self.grid.append(col)
-            
-    def default_pop(self):
+
+    @staticmethod
+    def default_pop():
         """ Default population for cell elements """
         return set()
         
@@ -55,6 +55,11 @@ class Grid(object):
         """ Return True if cell has no contents """
         x, y = position
         return True if self.grid[x][y] == self.default_pop() else False
+
+    def out_of_bounds(self, position):
+        """ Test if cell position is off of the grid """
+        x, y = position
+        return not ((0 <= x < self.width) or (0 <= y < self.height))
     
     def _place_agent(self, agent, position):
         """ Place an agent on the grid at position """
@@ -84,9 +89,9 @@ class Grid(object):
         """ Move agent from its current location to position """
         position = self.wrap_coords(position)
         self._remove_agent(agent.get_id(), agent.location)
-        
-        
-        
+        self._place_agent(agent.get_id(), position)
+        agent.location = position
+
     def iter_with_coords(self):
         """ Return iterator with cell contents and coordinates """
         for x in range(self.width):
@@ -94,9 +99,14 @@ class Grid(object):
                 yield self.grid[x][y], x, y
                 
     @wrap_tuple
-    def iter_cell_list_cont(self, lst):
-        """ Return an iterator of contents of cells in lst """
-        return (self[x][y] for x, y in lst if not self.is_empty((x, y)))
+    def iter_cell_list_contents(self, cell_lst):
+        """ Return an iterator of contents of cells in cell_lst """
+        return (self[x][y] for x, y in cell_lst if not self.is_empty((x, y)))
+
+    @wrap_tuple
+    def cell_list_contents(self, cell_lst):
+        """ Return a list of contents of cells in cell_lst """
+        return list(self.iter_cell_list_contents(cell_lst))
             
     def _iter_nghd(self, position, r=1, center=False):
         """ Return iterator over cells within an r-neighborhood
@@ -114,7 +124,7 @@ class Grid(object):
                 if abs(dx) + abs(dy) > r:
                     continue
                 # if grid does not wrap, skip when boundary is crossed
-                if not self.wrap and (not (0 <= dx + x < self.width) or not ((not (0 <= dy + y < self.height)):
+                if not self.wrap and (not (0 <= dx + x < self.width) or (not (0 <= dy + y < self.height))):
                     continue
                     
                 coords = self.wrap_coords((x + dx, y + dy))
@@ -127,10 +137,8 @@ class Grid(object):
         """ Return list of neighboring cells """
         return list(self._iter_nghd(position, r, center))
             
-    def nghd_cont_iter(self, position):
+    def iter_nghd_cont(self, position):
         """ Iterate over neighboring cell contents """
-        nghd = self.iter_nghd(position)
-        return self.iter_cell_list_cont(nghd)
-        
-        
-    
+        nghd = self._iter_nghd(position)
+        return self.iter_cell_list_contents(nghd)
+
