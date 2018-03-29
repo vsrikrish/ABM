@@ -5,12 +5,13 @@ import numpy as np
 import pandas as pd
 
 # define Model abstract class
-class Model(abc.ABCMeta):
+class Model(metaclass=abc.ABCMeta):
     
     """ Base class for models. """
     
     def __init__(self, seed=None, scheduler=None):
         """ create new model instance. """
+        super().__init__()
         self.nagt = 0
         # initialize storage for agents
         self.agents = pd.DataFrame(columns=['uid', 'agent', 'active'])
