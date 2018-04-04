@@ -2,12 +2,12 @@ import itertools
 import warnings
 
 # define decorator to wrap single-tuple arguments in a list
-def wrap_tuple(decorated_function):
+def wrap_tuple(func):
     def wrapper(*args):
         if isinstance(args[1], tuple) and len(args[1]) == 2:
-            return decorated_function(args[0], [args[1]])
+            return func(args[0], [args[1]])
         else:
-            return decorated_function(*args)
+            return func(*args)
             
     return wrapper
     
@@ -59,16 +59,16 @@ class Grid(object):
     def out_of_bounds(self, position):
         """ Test if cell position is off of the grid """
         x, y = position
-        return not ((0 <= x < self.width) or (0 <= y < self.height))
+        return (not ((-1 < x < self.width) and (-1 < y < self.height)))
     
-    def _place_agent(self, agent, position):
+    def _place_agent(self, agent_id, position):
         """ Place an agent on the grid at position """
         x, y = position
-        self.grid[x][y].add(agent.get_id())
+        self.grid[x][y].add(agent_id)
         
     def place_agent(self, agent, position):
         """ Place an agent on the grid at position """
-        self._place_agent(agent, position)
+        self._place_agent(agent.get_id(), position)
         agent.location = position
         
     def _remove_agent(self, agent_id, position):
@@ -77,13 +77,14 @@ class Grid(object):
         try: 
             self.grid[x][y].remove(agent_id)
         except ValueError:
-            warnings.warn(f'Agent {agent_id} not in cell {position}!')
+            warnings.warn('Agent {} not in cell {}!'.format(agent_id, position))
         
     def remove_agent(self, agent):
         """ Remove an agent from the grid """
         position = agent.location
         self._remove_agent(agent.get_id(), position)
         agent.location = None
+        self.model.agents.loc[self.model.agents['uid'] == agent.get_id(), 'active'] = False
         
     def move_agent(self, agent, position):
         """ Move agent from its current location to position """
@@ -118,15 +119,15 @@ class Grid(object):
         for dx in range(-r, r + 1):
             for dy in range(-r, r + 1):
                 # skip center cell if not desired
-                if dx == 0 and dy == 0 and not center:
+                if (dx == 0) and (dy == 0) and (not center):
                     continue
                 # skip cells exceeding Manhattan distance
                 if abs(dx) + abs(dy) > r:
                     continue
                 # if grid does not wrap, skip when boundary is crossed
-                if not self.wrap and (not (0 <= dx + x < self.width) or (not (0 <= dy + y < self.height))):
+                if (not self.wrap) and self.out_of_bounds((x + dx, y + dy)):
                     continue
-                    
+
                 coords = self.wrap_coords((x + dx, y + dy))
                 
                 if coords not in nghd:

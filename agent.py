@@ -13,6 +13,9 @@ class Agent(metaclass=abc.ABCMeta):
     def get_id(self):
         return self._uid
         
+    def set_id(self, uid):
+        self._uid = uid
+        
     def get_location(self):
         return self.location
         
