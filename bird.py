@@ -1,11 +1,26 @@
 from agent import Agent
 from model import Model, random_scheduler
 from space import Grid, wrap_tuple
+from query import Query
 import random
 import pandas
 import numpy as np
 import operator
 
+# model query functions
+def get_pop(model):
+    """ gets the bird population of the model when called """
+    return model.agents.loc[model.agents['active']].shape[0]
+    
+def get_vacancies(model):
+    """ gets the percentage of territories missing one or both alphas """
+    m_alpha_list = []
+    f_alpha_list = []
+    for ids, x, y in model.grid.iter_with_coords():
+        m_alpha_list.append(model.grid.contains_alpha((x,y), 'M'))
+        f_alpha_list.append(model.grid.contains_alpha((x,y), 'F'))
+    alpha_vacancy = [not (m and f) for m, f in zip(m_alpha_list, f_alpha_list)]
+    return sum(alpha_vacancy) / (model.grid.height * model.grid.width)
 
 class TerritoryGrid(Grid):
 
@@ -104,7 +119,7 @@ class Bird(Agent):
             oldest_bird = max([a for a in ages if not a[2]], key=operator.itemgetter(1))[0]
             if oldest_bird != self.get_id():
                 if random.uniform(0, 1) <= self.scout_prob:
-                    self.scout_trip()        
+                    self.scout_trip()            
 
 class BirdModel(Model):
 
@@ -120,7 +135,9 @@ class BirdModel(Model):
                  scout_prob = 0.5,                  # probability of going on a scouting trip
                  num_initial_agents = 2,            # initial number of birds of each sex in each territory
                  seed = None,                       # RNG seed
-                 scheduler = random_scheduler):    # scheduling function
+                 scheduler = random_scheduler,      # scheduling function
+                 model_queries = {'pop': get_pop,
+                                  'vacancy': get_vacancies}):   # model reporting functions
 
         super().__init__(seed)
         self.t_end = num_years * 12 # convert number of years to monthly timesteps
@@ -135,6 +152,9 @@ class BirdModel(Model):
         self.scheduler = scheduler
         self.grid = TerritoryGrid(model=self, terr_count=num_territory, 
                                     scout_dist=self.scout_dist)
+                                    
+        self.query_out = Query(model_queries=model_queries)
+        
         # initialize bird population
         for x in range(num_territory):
             for sex in ['M', 'F']:
@@ -184,8 +204,14 @@ class BirdModel(Model):
                         new_alpha = cands.idxmax()
                         if self.agents.at[new_alpha, 'age'] >= 12:
                             self.agents.at[new_alpha, 'agent'].become_alpha()
+        
         # step each bird (scouting and movement) according to the scheduler
         self.scheduler(self)
+        
+        # make observations in November of each year
+        if self.time % 12 == 11:
+            self.query_out.query_model(self)
+        
         # in last month of each year, alpha females reproduce if there is an alpha male
         if self.time % 12 == 0:
             for ids, x, y in self.grid.iter_with_coords():
