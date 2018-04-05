@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 import warnings
 from collections import defaultdict
 
@@ -73,6 +74,13 @@ class Query(object):
             self.agent_qtimes.append(model.time)
         else:
             warnings.warn("No agent queries specified!")    
+            
+    def model_query_to_np(self):
+        """ convert the dictionary of model queries to a dictionary of numpy array """
+        data = {}
+        for name, vals in self.model_vals.items():
+            data[name] = np.array(vals)
+        return data
 
     def model_query_to_df(self):
         """ convert the dictionary of model queries to a pandas dataframe.
