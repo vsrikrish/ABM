@@ -84,7 +84,6 @@ class Grid(object):
         position = agent.location
         self._remove_agent(agent.get_id(), position)
         agent.location = None
-        self.model.agents.loc[self.model.agents['uid'] == agent.get_id(), 'active'] = False
         
     def move_agent(self, agent, position):
         """ Move agent from its current location to position """

@@ -2,7 +2,6 @@ import abc
 import datetime as dt
 import random
 import numpy as np
-import pandas as pd
 
 # define Model abstract class
 class Model(metaclass=abc.ABCMeta):
@@ -14,7 +13,9 @@ class Model(metaclass=abc.ABCMeta):
         super().__init__()
         self.nagt = 0
         # initialize storage for agents
-        self.agents = pd.DataFrame(columns=['uid', 'agent', 'active'])
+        self.agents = {}
+        self.agent_ids = set()
+#        self.agents = pd.DataFrame(columns=['uid', 'agent', #'active'])
         
         self.time = 0
         
@@ -36,15 +37,16 @@ def basic_scheduler(model):
     """ step is the name of the agent method """
     if model.nagt == 0:
         raise IndexError('No agents in model!')
-    active_agt = model.agents['agent'][model.agents['active']].tolist()
-    for agent in active_agt:
-        agent.step()
+    for id, agent in model.agent.items():
+        if agent.location is not None:
+            agent.step()
 
 # random scheduler, which advances each active agent in random order
 def random_scheduler(model):
     if model.nagt == 0:
         raise IndexError('No agents in model!')
-    active_agt = model.agents.loc[model.agents['active'],'agent'].tolist()
-    random.shuffle(active_agt)
-    for agent in active_agt:
-        agent.step()
+    agents = [agent for id, agent in model.agents.items()]
+    random.shuffle(agents)
+    for agent in agents:
+        if agent.location is not None:
+            agent.step()

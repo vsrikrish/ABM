@@ -3,14 +3,15 @@ from model import Model, random_scheduler
 from space import Grid, wrap_tuple
 from query import Query
 import random
-import pandas
 import numpy as np
 import operator
+import pandas as pd
+import itertools
 
 # model query functions
 def get_pop(model):
     """ gets the bird population of the model when called """
-    return model.agents.loc[model.agents['active']].shape[0]
+    return len(set.union(*(ids for ids, x, y in model.grid.iter_with_coords())))   
     
 def get_vacancies(model):
     """ gets the percentage of territories missing one or both alphas """
@@ -39,9 +40,8 @@ class TerritoryGrid(Grid):
         """ determines if the territory contains an alpha of the
             desired sex """
 
-        x, y = position
-        return any([(row['agent'].is_alpha) and (row['agent'].sex == sex) for index, row in self.model.agents[self.model.agents['uid'].isin(self[x][y])].iterrows()])
-
+        return any([b.is_alpha for b in self.iter_bird(position) if b.sex == sex])
+        
     def contains_alpha_list(self, cell_iter, sex):
         """ determines if territories contain alphas of the given sex """
         return [self.contains_alpha(cell, sex) for cell in cell_iter]
@@ -59,8 +59,8 @@ class TerritoryGrid(Grid):
     def iter_bird(self, position):
         """ returns an iterator over the birds in the territory """
         x,y = position
-        return (row['agent'] for index, row in self.model.agents[self.model.agents['uid'].isin(self[x][y])].iterrows())
-
+        return (self.model.agents[id] for id in self.grid[x][y])
+        
 class Bird(Agent):
 
     """ Birds are the model agents. They can be male or female, and alpha or non-alpha.
@@ -69,6 +69,7 @@ class Bird(Agent):
 
     def __init__(self,
                  model,                     # model instance
+                 grid,                      # grid instance
                  uid,                       # unique ID
                  location,                  # location of cell bird spawns in
                  sex = None,                # sex of bird; can be 'M' or 'F' or None (will be randomly assigned)
@@ -78,6 +79,7 @@ class Bird(Agent):
                  scout_prob = 0.5):         # probability of going on a scouting trip
 
         super().__init__(uid, model)
+        self.grid = grid
         self.location = location
         if sex is not None:
             self.sex = sex
@@ -88,36 +90,33 @@ class Bird(Agent):
         self.surv_prob = surv_prob
         self.scout_prob = 0.5
         self.is_alpha = False
-
-    def become_alpha(self):
-        self.is_alpha = True
         
     def scout_trip(self):
         # if the bird survives the scouting trip,
         # scout. Otherwise, remove from the grid.
         if self.scout_surv_prob >= random.uniform(0,1):
             scout_dir = random.sample([-1, 1], 1)
-            scout_iter = self.model.grid.scout_iter(self.location, scout_dir)
+            scout_iter = self.grid.scout_iter(self.location, scout_dir)
             for position in scout_iter:
                 # if any of the scouted territories does not have an alpha
                 # of the same sex as the bird, the bird stays in the same position.
                 # Otherwise, the bird moves to the first territory found with 
-                if not self.model.grid.contains_alpha(position, self.sex):
-                    self.model.grid.move_agent(self, position)
+                if not self.grid.contains_alpha(position, self.sex):
+                    self.grid.move_agent(self, position)
                     break
         else:
-            self.model.grid.remove_agent(self)
-            self.model.agents.loc[self.model.agents['uid'] == self.get_id(),'active'] = False
-            
-    def step_age(self):
-        self.age += 1
-        
+            self.grid.remove_agent(self)
+                                
     def step(self):
         """ advances the agent one step, which involves scouting """
+        x, y = self.location
         if not self.is_alpha:
-            ages = [(bird.get_id(), bird.age, bird.is_alpha) for bird in self.model.grid.iter_bird(self.location) if bird.sex == self.sex]
-            oldest_bird = max([a for a in ages if not a[2]], key=operator.itemgetter(1))[0]
-            if oldest_bird != self.get_id():
+            # if the bird is the oldest subordinate bird
+            try: 
+                oldest_sub = max([self.model.agents[id] for id in self.grid[x][y] if (not self.model.agents[id].is_alpha) and (self.model.agents[id].sex == self.sex)], key=operator.attrgetter('age'))
+            except ValueError:
+                oldest_sub = None
+            if oldest_sub != self:
                 if random.uniform(0, 1) <= self.scout_prob:
                     self.scout_trip()            
 
@@ -147,8 +146,6 @@ class BirdModel(Model):
         self.scout_prob = scout_prob
         self.surv_prob = surv_prob
         self.scout_dist = scout_dist
-        self.agents = self.agents.reindex(
-            columns=['uid', 'agent', 'sex', 'age', 'active'])
         self.scheduler = scheduler
         self.grid = TerritoryGrid(model=self, terr_count=num_territory, 
                                     scout_dist=self.scout_dist)
@@ -158,28 +155,33 @@ class BirdModel(Model):
         # initialize bird population
         for x in range(num_territory):
             for sex in ['M', 'F']:
-                self.create_agents(n_agents=2, position=(x, 0),
+                new_agents = self.create_agents(n_agents=2, position=(x, 0),
                                    sex=sex, age=[random.randint(0, 24) for i in range(2)])
                 # the oldest new agent of each sex becomes the alpha
-                new_agts = self.agents[(self.agents['uid'].isin(self.grid[x][0])) & (self.agents['sex'] == sex)]
-                alpha = new_agts.loc[new_agts['age'].idxmax()]
-                alpha.agent.become_alpha()
+                alpha = max(new_agents, key=operator.attrgetter('age'))
+                alpha.is_alpha = True
                 
             
     def create_agents(self, n_agents, position, sex=None, age=0):
         # increment number of total agents
+        new_agents = [None] * n_agents
         if sex is None:
-            sex = random.choices(['M', 'F'], n_agents)
+            sex = [random.choice(['M', 'F']) for i in range(n_agents)]
         elif isinstance(sex, str):
             sex = [sex] * n_agents
         if not isinstance(age, list):
             age = [age] * n_agents
         for i in range(n_agents):
-            agent = Bird(model=self, uid=self.nagt, location=position, sex=sex[i], age=age[i], 
-                    scout_surv_prob=self.scout_surv_prob, scout_prob=self.scout_prob, surv_prob=self.surv_prob)
+            uid = random.choice(list(set(range(0, 10001))-self.agent_ids))
+            agent = Bird(model=self, grid=self.grid, uid=uid, location=position, sex=sex[i], age=age[i], 
+                    scout_surv_prob=self.scout_surv_prob, scout_prob=self.scout_prob, 
+                    surv_prob=self.surv_prob)
+            new_agents[i] = agent
             self.grid.place_agent(agent, position)
-            self.agents = self.agents.append({'uid': agent.get_id(), 'agent': agent, 'sex': agent.sex, 'age': agent.age, 'active': True}, ignore_index=True)
+            self.agents[uid] = agent
+            self.agent_ids.add(uid)
             self.nagt += 1
+        return new_agents
                     
     def reproduce(self, position):
         """ if a territory contains alphas of both sexes, they reproduce """
@@ -192,18 +194,15 @@ class BirdModel(Model):
         self.time += 1  # update time
         # update bird ages and fill alphas for each territory
         for ids, x, y in self.grid.iter_with_coords():
-            self.agents.loc[self.agents['uid'].isin(ids),'age'] += 1
-            for agent in self.agents.loc[self.agents['uid'].isin(ids), 'agent'].tolist():
-                agent.step_age()
+            for agent in self.grid.iter_bird((x,y)):
+                agent.age += 1
             for sex in['M', 'F']:
                 if not self.grid.contains_alpha((x,y), sex):
-                    cands = self.agents.loc[(self.agents['uid'].isin(ids)) & (self.agents['sex'] == sex),'age']
-                    if cands.empty:
+                    try:
+                        new_alpha = max([bird for bird in self.grid.iter_bird((x, y)) if bird.age >= 12 and bird.sex == sex], key=operator.attrgetter('age'))
+                        new_alpha.is_alpha = True
+                    except ValueError:
                         continue
-                    else:
-                        new_alpha = cands.idxmax()
-                        if self.agents.at[new_alpha, 'age'] >= 12:
-                            self.agents.at[new_alpha, 'agent'].become_alpha()
         
         # step each bird (scouting and movement) according to the scheduler
         self.scheduler(self)
@@ -218,12 +217,20 @@ class BirdModel(Model):
                 if self.grid.contains_alpha((x,y), 'M') and self.grid.contains_alpha((x,y), 'F'):
                     self.reproduce((x,y))
         # birds experience mortality
-        for index, row in self.agents[self.agents['active']].iterrows():
-            if self.surv_prob <= random.uniform(0, 1):
-                self.grid.remove_agent(self.agents.at[index, 'agent'])
-                self.agents.at[index, 'active'] = False
+        for id, agent in self.agents.items():
+            if (agent.location is not None) and (self.surv_prob < random.uniform(0, 1)):
+                self.grid.remove_agent(agent)
                 
     def run_model(self):
         """ model to invoke to run model from start to finish """
         for t in range(self.t_end):
             self.step()
+
+if __name__ == "main":
+    import xarray as xr
+    
+    m = bird.BirdModel(seed=0)
+    m.run_model()
+#    df = m.query_out.model_query_to_df()
+#    ds = xr.Dataset.from_dataframe(df)
+#    ds.to_netcdf('bird-pcout.nc')

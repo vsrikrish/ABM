@@ -10,6 +10,10 @@ class Agent(metaclass=abc.ABCMeta):
         self.location = None
         self.model = model
         
+    def __eq__(self, other):
+        # two agents are equal if their unique ids are equivalent
+        return (self._uid == other._uid)
+        
     def get_id(self):
         return self._uid
         

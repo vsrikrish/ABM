@@ -87,7 +87,7 @@ class Query(object):
             The dataframe has one column for each variable, and another for the
             model times of query. """
         df = pd.DataFrame(self.model_vals)
-        df['time'] = pd.Series(model.qtimes)
+        df['time'] = pd.Series(self.model_qtimes)
         return df
         
     def agent_query_to_df(self):
