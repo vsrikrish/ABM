@@ -1,4 +1,6 @@
 import itertools
+import numpy as np
+import operator
 import warnings
 
 # define decorator to wrap single-tuple arguments in a list
@@ -142,3 +144,104 @@ class Grid(object):
         nghd = self._iter_nghd(position)
         return self.iter_cell_list_contents(nghd)
 
+def ContinuousDomain(object):
+    """ Continuous domain, where agents can have arbitrary
+        positions instead of grid coordinates. The domain 
+        object stores agent positions as a numpy array """
+        
+    def __init__(self, x=(0,1), y=(0,1), wrap=False):
+        """ x and y are tuples giving lower and upper bounds
+            on those coordinates. Wrap is a boolean for whether
+            the grid wraps around as a torus. """
+            
+        super().__init__()
+        self.xlim = x
+        self.ylim = y
+        
+        self.width = x[1] - x[0]
+        self.height = y[1] - y[0]
+        self.wrap = wrap
+        
+        # initialize agent storage array
+        self._agent_pos = np.zeros(shape=(0,2))
+        
+        # initialize list mapping position indices and agent ids 
+        self._idx_to_agent = []
+        
+    def out_of_bounds(self, position):
+        """ determine if position is out of bounds """
+                x, y = position
+        return (not ((self.xlim[0] <= x <= self.xlim[1]) and (self.ylim[0] < y < self.ylim[1])))
+        
+    def wrap_coords(self, position):
+        if not self.out_of_bounds(position):
+            return position
+        elif not self.wrap:
+            raise IndexError('Position out of bounds!')
+        else:
+            new_x = self.xlim[0] + (position[0] - self.xlim[0]) % self.width
+            new_y = self.ylim[0] + (position[1] - self.ylim[0]) % self.height
+            if isinstance(position, tuple):
+                return (new_x, new_y)
+            elif isinstance(position, np.ndarray):
+                return np.array((new_x, new_y))
+                
+    def _place_agent(self, agent_id, position):
+        """ private method to assign a location to the agent id """
+        position = wrap_coords(position)
+        # add position to array
+        self._agent_pos = np.vstack((self._agent_pos, np.array(position)))
+        # store index-agent mapping
+        self._idx_to_agent.append((self_agent_pos.shape[0] - 1, agent_id))
+        
+    def place_agent(self, agent, position):
+        """ place an agent in the model """
+        # assign position to agent id
+        self._place_agent(agent.get_id(), position)
+        # set agent location
+        agent.location = position
+        
+    def _remove_agent(self, agent_id, position):
+        """ private method to remove an agent id from the model """
+        # get index in position array 
+        try:
+            lidx, pidx = zip(*[i, v[0] for i, v in enumerate(self._idx_to_agent) if v[1] == agent_id])
+        except ValueError:
+            raise ValueError('Agent {} is not placed in the model!'.format(agent_id))
+        if len(lidx) > 1:
+            raise ValueError('Agent {} is placed multiple times!'.format(agent_id))
+        else:
+            # remove agent from position array
+            self._agent_pos = np.delete(self._agent_pos, pidx, axis=0)
+            # remove agent from index-agent tuple list
+            del self._idx_to_agent[lidx]
+    
+    def remove_agent(self, agent, position):
+        """ remove an agent from the model """
+        self._remove_agent(agent.get_id(), position)
+        agent.location = None
+    
+    def _move_agent(self, agent_id, position):
+        """ private method to move agent """
+        idx = [v[0] for v in self._idx_to_agent if v[1] == agent_id]
+        self._agent_pos[idx] = position
+    
+    def move_agent(self, agent, position):
+        """ move agent from its current position
+            to the specified position """
+        position = self.wrap_coords(position)
+        self._move_agent(agent.get_id(), position)
+        agent.location = position
+        
+    def iter_neighbors(self, position, r, center = True):
+        """ returns an iterator of the
+            agent ids within radius r from
+            position. if center is True, this will
+            include any agents at the coordinates
+            specified by position. """
+        position = wrap_coords(position)
+        dists = np.linalg.norm(self._agent_pos - position)
+        idx, = np.where(dists <= r ** 2)
+        return (v[1] for v in self._idx_to_agent 
+                if (v[0] is in idx) and (center or dists[v[0]] > 0))
+            
