@@ -170,7 +170,7 @@ def ContinuousDomain(object):
         
     def out_of_bounds(self, position):
         """ determine if position is out of bounds """
-                x, y = position
+        x, y = position
         return (not ((self.xlim[0] <= x <= self.xlim[1]) and (self.ylim[0] < y < self.ylim[1])))
         
     def wrap_coords(self, position):
@@ -205,7 +205,7 @@ def ContinuousDomain(object):
         """ private method to remove an agent id from the model """
         # get index in position array 
         try:
-            lidx, pidx = zip(*[i, v[0] for i, v in enumerate(self._idx_to_agent) if v[1] == agent_id])
+            lidx, pidx = zip(*[(i, v[0]) for i, v in enumerate(self._idx_to_agent) if v[1] == agent_id])
         except ValueError:
             raise ValueError('Agent {} is not placed in the model!'.format(agent_id))
         if len(lidx) > 1:
@@ -242,6 +242,4 @@ def ContinuousDomain(object):
         position = wrap_coords(position)
         dists = np.linalg.norm(self._agent_pos - position)
         idx, = np.where(dists <= r ** 2)
-        return (v[1] for v in self._idx_to_agent 
-                if (v[0] is in idx) and (center or dists[v[0]] > 0))
-            
+        return (v[1] for v in self._idx_to_agent if (v[0] in idx) and (center or dists[v[0]] > 0))
