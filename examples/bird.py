@@ -1,3 +1,6 @@
+import sys
+
+sys.path.append('/storage/work/vxs914/ABM/scripts')
 from agent import Agent
 from model import Model, random_scheduler
 from space import Grid, wrap_tuple
@@ -5,7 +8,6 @@ from query import Query
 import random
 import numpy as np
 import operator
-import pandas as pd
 import itertools
 
 # model query functions
@@ -227,10 +229,12 @@ class BirdModel(Model):
             self.step()
 
 if __name__ == "main":
+    import pandas as pd
     import xarray as xr
     
     m = bird.BirdModel(seed=0)
     m.run_model()
-#    df = m.query_out.model_query_to_df()
+    d = m.query_out['pop']
+    print(d)
 #    ds = xr.Dataset.from_dataframe(df)
 #    ds.to_netcdf('bird-pcout.nc')
