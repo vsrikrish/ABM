@@ -38,7 +38,7 @@ class Grid(object):
         
     def __getitem__(self, position):
         """ Get grid element by position """
-        return self.grid[position]   
+        return self.grid[position]
     
     def __iter__(self):
         """ Define iterator over grid cells """
@@ -76,7 +76,7 @@ class Grid(object):
     def _remove_agent(self, agent_id, position):
         """ Remove an agent from grid position """
         x, y = position
-        try: 
+        try:
             self.grid[x][y].remove(agent_id)
         except ValueError:
             warnings.warn('Agent {} not in cell {}!'.format(agent_id, position))
@@ -110,10 +110,12 @@ class Grid(object):
         """ Return a list of contents of cells in cell_lst """
         return list(self.iter_cell_list_contents(cell_lst))
             
-    def _iter_nghd(self, position, r=1, center=False):
+    def _iter_nghd(self, position, r=1, center=False, moore=False):
         """ Return iterator over cells within an r-neighborhood
             of the cell referenced by position. Cells
-            are referenced by their coordinate tuples. """
+            are referenced by their coordinate tuples.
+            If moore = True, return the Moore neighborhood (including
+            diagonals)."""
         
         x, y = position
         nghd = set()
@@ -123,7 +125,7 @@ class Grid(object):
                 if (dx == 0) and (dy == 0) and (not center):
                     continue
                 # skip cells exceeding Manhattan distance
-                if abs(dx) + abs(dy) > r:
+                if not moore and abs(dx) + abs(dy) > r:
                     continue
                 # if grid does not wrap, skip when boundary is crossed
                 if (not self.wrap) and self.out_of_bounds((x + dx, y + dy)):
@@ -135,18 +137,18 @@ class Grid(object):
                     nghd.add(coords)
                     yield coords
         
-    def nghd_list(self, position, r=1, center=False):
+    def nghd_list(self, position, r=1, center=False, moore=False):
         """ Return list of neighboring cells """
-        return list(self._iter_nghd(position, r, center))
+        return list(self._iter_nghd(position, r, center, moore))
             
-    def iter_nghd_cont(self, position):
+    def iter_nghd_cont(self, position, r=1, center=False, moore=False):
         """ Iterate over neighboring cell contents """
-        nghd = self._iter_nghd(position)
+        nghd = self._iter_nghd(position, r, center, moore)
         return self.iter_cell_list_contents(nghd)
 
 def ContinuousDomain(object):
     """ Continuous domain, where agents can have arbitrary
-        positions instead of grid coordinates. The domain 
+        positions instead of grid coordinates. The domain
         object stores agent positions as a numpy array """
         
     def __init__(self, x=(0,1), y=(0,1), wrap=False):
@@ -165,7 +167,7 @@ def ContinuousDomain(object):
         # initialize agent storage array
         self._agent_pos = np.zeros(shape=(0,2))
         
-        # initialize list mapping position indices and agent ids 
+        # initialize list mapping position indices and agent ids
         self._idx_to_agent = []
         
     def out_of_bounds(self, position):
@@ -203,7 +205,7 @@ def ContinuousDomain(object):
         
     def _remove_agent(self, agent_id, position):
         """ private method to remove an agent id from the model """
-        # get index in position array 
+        # get index in position array
         try:
             lidx, pidx = zip(*[(i, v[0]) for i, v in enumerate(self._idx_to_agent) if v[1] == agent_id])
         except ValueError:
@@ -243,3 +245,4 @@ def ContinuousDomain(object):
         dists = np.linalg.norm(self._agent_pos - position)
         idx, = np.where(dists <= r ** 2)
         return (v[1] for v in self._idx_to_agent if (v[0] in idx) and (center or dists[v[0]] > 0))
+ 

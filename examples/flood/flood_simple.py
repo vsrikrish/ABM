@@ -15,6 +15,20 @@ def get_vac(model):
     return sum([model.grid.is_empty((x, y))
                 for ids, x, y in model.grid.iter_with_coords()
                 ])
+                
+def get_states(model):
+    """ gets the states (vacant or occupied) of each lot when called"""
+    states = np.zeros((model.grid.width, model.grid.height), dtype=np.bool)
+    for ids, x, y in model.grid.iter_with_coords():
+        states[x][y] = not model.grid.is_empty((x, y))
+    return states
+                    
+def get_floods(model):
+    """ gets the number of floods over the previous 10 years for each lot """
+    floods = np.zeros((model.grid.width, model.grid.height), dtype=np.int8)
+    for ids, x, y in model.grid.iter_with_coords():
+        floods[x][y] = model.grid.num_floods((x, y), 10)
+    return floods
 
 class HousingGrid(Grid):
     
@@ -61,8 +75,8 @@ class HousingGrid(Grid):
     # get number of floods for a particular pacel within the previous num_yr years
     def num_floods(self, position, num_yr):
         col, row = position
-        sidx = self.model.time-self.model.start+50-num_yr
-        eidx = self.model.time-self.model.start+50
+        eidx = self.model.time-self.model.start+51
+        sidx = eidx-num_yr
         return sum(self.floods[col][row][sidx:eidx])
     
     # add to flood history for a parcel
@@ -90,7 +104,7 @@ class Resident(Agent):
         mem_years = min(max(self.res_length, 5), self.mem_length)
         n_flood = self.model.grid.num_floods(self.location, mem_years)
         x = self.move_params['int'] + \
-            self.move_params['coef'] * n_flood / mem_years
+            self.move_params['self_coef'] * n_flood / mem_years
         u = np.random.random()
         return u < 1/(1+np.exp(-x))
         
