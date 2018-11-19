@@ -62,7 +62,7 @@ for (model in models) {
   }
 }
 
-data_path <- file.path(dirname(getwd()), 'data')
+data_path <- file.path(getwd(), 'data')
 
 for (i in 1:nrow(pcases)) {
   yrs <- pcases[i, 'yr']
@@ -75,7 +75,7 @@ for (i in 1:nrow(pcases)) {
   lik_type <- pcases[i, 'lt']
 
   # set directories
-  hind_path <- file.path(dirname(getwd()), 'hind', paste0('model-id-', lik_type))
+  hind_path <- file.path(getwd(), 'hind', paste0('model-id-', lik_type))
 
   if (rows <= cols) {
 
@@ -167,12 +167,12 @@ for (i in 1:nrow(gcases)) {
 
 q <- ggarrange(plotlist=p, ncol=2, nrow=2, heights=c(1, 1), widths=c(1, 1), labels='auto', font.label=list(size=12, color='black', face='bold'), legend='bottom', common.legend=TRUE)
 
-png(paste0('hindcast-informed.png'), width=8, height=8, units='in', res=300)
+png('figures/hindcast-informed.png', width=8, height=8, units='in', res=300)
 print(q)
 dev.off()
 
-pdf(paste0('hindcast-informed.pdf'),
+pdf('figures/hindcast-informed.pdf',
   width=8, height=8)
 print(q)
 dev.off()
-.off()
+

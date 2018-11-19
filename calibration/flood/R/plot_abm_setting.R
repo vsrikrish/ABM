@@ -6,7 +6,7 @@ library(ggpubr)
 
 river_params <- list('loc' = 865, 'shape' = 0.02, 'scale' = 11)
 
-data_path <- '../data'
+data_path <- 'data'
 dat <- readRDS(file.path(data_path, 'flood_data.rds'))
 
 d_rp <- melt(dat$elev)

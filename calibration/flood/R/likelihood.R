@@ -1,6 +1,6 @@
 # contains functions for computing the posterior density of the flood model
 library(plyr)
-source('utils.R')
+source('R/utils.R')
 ##################################################
 # ev_mod: computes expected value for likelihood #
 #                                                #

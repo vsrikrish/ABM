@@ -4,8 +4,8 @@ library(foreach)
 library(doParallel)
 
 
-source('utils.R')
-source('likelihood.R')
+source('R/utils.R')
+source('R/likelihood.R')
 
 set.seed(1234)
 
@@ -21,12 +21,14 @@ if (aid != '') {
   n_rows <- c(5, 10)
   n_cols <- c(5, 10)
   priors <- c('informed', 'weakly')
+  lik_types <- c('agg', 'ind')
   
-  pcases <- expand.grid(yr=n_yrs, cols=n_cols, rows=n_rows, prior=priors)
+  pcases <- expand.grid(yr=n_yrs, cols=n_cols, rows=n_rows, prior=priors, lt=lik_types)
   yrs <- pcases[id, 'yr']
   rows <- pcases[id, 'rows']
   cols <- pcases[id, 'cols']
   prior <- pcases[id, 'prior']
+  lik_type <- pcases[id, 'lt']
 } else {
   args <- commandArgs(trailingOnly=TRUE)
   yrs <- as.numeric(args[1])
@@ -36,7 +38,7 @@ if (aid != '') {
 }
 
 
-out_path <- file.path(dirname(getwd()), 'output')
+out_path <- file.path(getwd(), 'output', paste0('model-id-', lik_type))
 
 models <- c('simple', 'complex')
 
@@ -45,16 +47,22 @@ ncores <- detectCores()
 cl <- makeCluster(ncores)
 registerDoParallel(cl)
 
-n <- yrs*cols*rows
+if (lik_type == 'ind') {
+  n <- yrs*cols*rows
+} else {
+  n <- yrs
+}
+
+lik_fun <- match.fun(paste0('log_lik_', lik_type))
 
 ll <- foreach(i=1:length(models),
               .packages=c('plyr'),
-              .export=c('models', 'ev_mod', 'inv_logit', 'log_lik', 'yrs', 'rows', 'cols', 'n')
+              .export=c('models', 'ev_mod', 'inv_logit', 'lik_fun', 'yrs', 'rows', 'cols', 'n')
       ) %dopar% {
       
   # load MCMC output
 
-  mcmc_file <- file.path(out_path, 'model-id', models[i], prior,
+  mcmc_file <- file.path(out_path, models[i], prior,
     	                      paste('MCMC-', yrs, '-',
            			            rows, '-', cols, '.rds',
 	                          sep = ''
@@ -67,7 +75,7 @@ ll <- foreach(i=1:length(models),
   idx <- sample(1:nrow(mcmc$mcmc_out$samples), nsamp, replace=TRUE)
   
   # compute log-likelihoods
-  vapply(idx, function(j) as.numeric(log_lik(mcmc$mcmc_out$samples[j,],
+  vapply(idx, function(j) as.numeric(lik_fun(mcmc$mcmc_out$samples[j,],
             parnames=mcmc$parnames,
             ev_fun=ev_mod,
             dat=mcmc$obs,
@@ -94,7 +102,10 @@ stopCluster(cl)
 
 print('Saving...')
 # set location and filename for bridge sampling output
-waic_path <- '../waic'
+waic_path <- file.path('waic', paste0('model-id-', lik_type))
+if (!dir.exists(waic_path)) {
+   dir.create(waic_path)
+}
 waic_file <- file.path(waic_path,
   paste('waic-', yrs, '-', rows, '-', cols, '-', prior, '.rds', sep=''))
 

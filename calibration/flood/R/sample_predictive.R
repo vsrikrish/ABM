@@ -7,7 +7,7 @@ library(pryr)
 library(foreach)
 library(doParallel)
 
-source('utils.R')
+source('R/utils.R')
 
 set.seed(1234)
 
@@ -17,8 +17,8 @@ nsamp <- 50000
 args <- commandArgs(trailingOnly=TRUE)
 lik_type <- args[1]
 
-data_path <- '../data'
-out_path <- file.path('../output', paste0('model-id-', lik_type))
+data_path <- 'data'
+out_path <- file.path('output', paste0('model-id-', lik_type))
 
 # if PBS array used, get job number and specify parameters
 # otherwise get arguments from command call

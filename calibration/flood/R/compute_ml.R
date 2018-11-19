@@ -1,5 +1,5 @@
-source('utils.R')
-source('likelihood.R')
+source('R/utils.R')
+source('R/likelihood.R')
 source('bridge_sample.R')
 library(foreach)
 library(doParallel)
@@ -43,10 +43,10 @@ ncores <- detectCores()
 cl <- makeCluster(ncores)
 registerDoParallel(cl)
 
-if (!dir.exists('../ml')) {
-  dir.create('../ml')
+if (!dir.exists('ml')) {
+  dir.create('ml')
 }
-ml_path <- file.path('../ml', paste0('model-id-', lik_type))
+ml_path <- file.path('ml', paste0('model-id-', lik_type))
 if (!dir.exists(ml_path)) {
   dir.create(ml_path)
 }

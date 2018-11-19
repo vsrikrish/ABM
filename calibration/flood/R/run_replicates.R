@@ -5,13 +5,13 @@ library(ggplot2)
 library(extRemes)
 library(scales)
 
-source('utils.R')
+source('R/utils.R')
 
 n_runs <- 1000
 
 river_params <- list('loc' = 865, 'shape' = 0.02, 'scale' = 11)
 
-data_path <- '../data'
+data_path <- 'data'
 dat <- readRDS(file.path(data_path, 'flood_data.rds'))
 
 elev <- dat$elev
@@ -112,11 +112,11 @@ p <- ggplot(out_melt[out_melt$model == 'complex',]) +
      theme(panel.grid.major=element_blank(),
            panel.grid.minor=element_blank())
            
-pdf('complex_spaghetti.pdf', height=2.5, width=2.5)
+pdf('figures/complex_spaghetti.pdf', height=2.5, width=2.5)
 p
 dev.off()
 
-png('complex_spaghetti.png', height=2.5, width=2.5, units='in', res=300)
+png('figures/complex_spaghetti.png', height=2.5, width=2.5, units='in', res=300)
 p
 dev.off()
 

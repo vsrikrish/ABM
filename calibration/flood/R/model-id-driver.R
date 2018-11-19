@@ -11,9 +11,9 @@ library(DEoptim)
 set.seed(1234)
 
 # load utility functions
-source('utils.R')
+source('R/utils.R')
 # load density functions
-source('likelihood.R')
+source('R/likelihood.R')
 
 args <- commandArgs(trailingOnly=TRUE)
 lik_type <- args[1]
@@ -46,7 +46,7 @@ model_names <- c('simple', 'complex')
 prior_names <- c('weakly', 'informed')
 mcases <- expand.grid(model=model_names, prior=prior_names)
 
-data_path <- file.path(dirname(getwd()), 'data')
+data_path <- file.path(getwd(), 'data')
 # run positive control test if necessary
 if (!dir.exists(data_path)) {
   dir.create(data_path)
@@ -221,7 +221,7 @@ init_val <- foreach(i=1:length(model_names),
         ) %dopar% {
 
   # set up directory for output
-  out_path <- file.path(dirname(getwd()), 'output', paste0('model-id-', lik_type),
+  out_path <- file.path(getwd(), 'output', paste0('model-id-', lik_type),
     model_names[i])
   if (!dir.exists(out_path)) {
     dir.create(out_path)
@@ -378,4 +378,3 @@ foreach(i=1:nrow(mcases),
   saveRDS(mcmc_list, mcmc_file)
 }
 print('Done!')
-int('Done!')

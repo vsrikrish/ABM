@@ -19,8 +19,8 @@ n_col <- as.numeric(args[3])
 lik_type <- c('ind', 'agg')
 
 # set directories
-data_path <- file.path(dirname(getwd()), 'data')
-fig_path <- file.path(dirname(getwd()), 'figures')
+data_path <- file.path(getwd(), 'data')
+fig_path <- file.path(getwd(), 'figures')
 
 if (!dir.exists(fig_path)) {
   dir.create(fig_path)
